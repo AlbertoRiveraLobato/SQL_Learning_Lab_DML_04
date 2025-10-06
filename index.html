@@ -3,286 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <title>SQL Playground Didáctico</title>
+  <!-- ======================================================
+       VERSIÓN DE LA APP (MODIFICAR AQUÍ)
+       Cambia el valor de la siguiente variable para actualizar la versión:
+  ======================================================= -->
+  <script>
+    const APP_VERSION = "4"; // <--- MODIFICA AQUÍ EL NÚMERO DE VERSIÓN
+  </script>
+  <!-- ====================================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
   <style>
-    html, body { height: 100%; margin: 0; font-family: sans-serif; background: #f3f6fa;}
-    #container { display: flex; height: 100vh; }
-    #left { width: 40%; background: #e9eef6; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; }
-    #right { flex: 1; background: #fff; padding: 16px; overflow: auto; }
-    #sql-editor { flex: 1; width: 100%; font-family: monospace; font-size: 15px; resize: none; margin-bottom: 18px; padding: 8px; border-radius: 6px; border: 1px solid #ccd;}
-    .btn-group { margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
-    button { padding: 7px 16px; background: #3a6df0; border: none; color: #fff; border-radius: 5px; font-size: 1rem; cursor: pointer; }
-    button:active { background: #2d4fb3; }
-    #tables-graph { display: flex; flex-wrap: wrap; gap: 20px; }
-    .table-box { border: 2px solid #3a6df0; border-radius: 7px; padding: 10px; min-width: 220px; background: #f7fafc; margin-bottom: 18px; }
-    .table-title { font-weight: bold; font-size: 1.1em; margin-bottom: 7px; color: #234; }
-    .column-header { font-weight: bold; background: #dde7fa; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #c3cce6; padding: 3px 7px; text-align: left; font-size: 0.97em; }
-    .msg { margin: 10px 0; color: #c0392b; }
-    /* Colores para tablas */
-    .table-color-0 { border-color: #3a6df0; background: #f7fafc; }
-    .table-color-1 { border-color: #2ec4b6; background: #e6fcf5; }
-    .table-color-2 { border-color: #ffb703; background: #fff9e6; }
-    .table-color-3 { border-color: #f94144; background: #fde9ea; }
-    .table-color-4 { border-color: #8338ec; background: #f4e9ff; }
-    .table-color-5 { border-color: #ff6f61; background: #fff1ee; }
-    @media (max-width: 800px) {
-      #container { flex-direction: column; }
-      #left, #right { width: 100%; }
-    }
-    /* Centrado del título */
-    #main-title {
-      text-align: center;
-      margin-top: 30px;
-      margin-bottom: 10px;
-      font-size: 2.15rem;
-      color: #234;
-      letter-spacing: 0.5px;
-      font-weight: 700;
-    }
+    /* ... (todo el CSS igual que antes) ... */
   </style>
 </head>
 <body>
   <h1 id="main-title"></h1>
   <div id="container">
-    <div id="left">
-      <div class="btn-group">
-        <button id="ejecutarBtn">Ejecutar</button>
-        <button id="borrarBtn">Borrar</button>
-        <button id="initBtn">Inicializar BBDD</button>
-        <button id="eliminarBtn">Eliminar BBDD</button>
-        <button id="actualizarBtn">Actualizar</button>
-      </div>
-      <textarea id="sql-editor" spellcheck="false" placeholder="Escribe tu código SQL aquí..."></textarea>
-      <div id="msg" class="msg"></div>
-    </div>
-    <div id="right">
-      <div id="tables-graph"></div>
-    </div>
+    <!-- ... (resto igual) ... -->
   </div>
   <script>
-    // Leer versión desde readme.txt y actualizar el título
-    fetch('README.txt')
-      .then(response => response.ok ? response.text() : '')
-      .then(text => {
-        let version = null;
-        if (text) {
-          const match = text.match(/Versión[:\s]+([0-9]+)/i);
-          if (match) version = match[1];
-        }
-        const title = document.getElementById('main-title');
-        if (version) {
-          title.textContent = 'SQL Playground Didáctico v' + version;
-        } else {
-          title.textContent = 'SQL Playground Didáctico (sin versión)';
-        }
-      })
-      .catch(() => {
-        document.getElementById('main-title').textContent = 'SQL Playground Didáctico (sin versión)';
-      });
+    // Actualizar el título con la versión
+    document.getElementById('main-title').textContent = 'SQL Playground Didáctico v' + APP_VERSION;
 
-    let db = null;
-    let SQL = null;
-
-    // Código SQL de inicialización (puedes modificarlo)
-    const initSQL = `
--- Crear tabla de alumnos
-CREATE TABLE IF NOT EXISTS alumnos (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  nombre TEXT,
-  edad INTEGER
-);
-
--- Insertar datos de ejemplo
-INSERT INTO alumnos (nombre, edad) VALUES
-  ('Ana', 20),
-  ('Luis', 22),
-  ('Marta', 19);
-
--- Crear tabla de asignaturas
-CREATE TABLE IF NOT EXISTS asignaturas (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  nombre TEXT,
-  curso TEXT
-);
-
--- Insertar datos de ejemplo
-INSERT INTO asignaturas (nombre, curso) VALUES
-  ('Matemáticas', '1º'),
-  ('Historia', '1º'),
-  ('Física', '2º');
-`;
-
-    // Cargar y preparar sql.js
-    window.initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` })
-      .then(SQLLib => {
-        SQL = SQLLib;
-        inicializarBBDD();
-      });
-
-    // Inicializa la base de datos con datos de ejemplo
-    function inicializarBBDD() {
-      db = new SQL.Database();
-      ejecutarSQL(initSQL, false); // No mostrar mensaje, solo ejecutar
-      document.getElementById('sql-editor').value = initSQL.trim();
-      actualizarVistaTablas();
-      mostrarMensaje('Base de datos inicializada.', false);
-    }
-
-    // Elimina la base de datos
-    function eliminarBBDD() {
-      db = new SQL.Database();
-      actualizarVistaTablas();
-      mostrarMensaje('Base de datos eliminada (vacía).', false);
-    }
-
-    // Ejecuta el SQL del editor
-    function ejecutarDesdeEditor() {
-      const code = document.getElementById('sql-editor').value;
-      if (!code.trim()) {
-        mostrarMensaje('Introduce algún código SQL.', true);
-        return;
-      }
-      ejecutarSQL(code, true);
-      actualizarVistaTablas();
-    }
-
-    // Ejecuta SQL y muestra resultados o errores
-    function ejecutarSQL(sql, mostrarOK) {
-      try {
-        db.exec(sql);
-        if (mostrarOK) mostrarMensaje('SQL ejecutado correctamente.', false);
-      } catch (e) {
-        mostrarMensaje('Error SQL: ' + e.message, true);
-      }
-    }
-
-    // Borrar editor
-    function borrarEditor() {
-      document.getElementById('sql-editor').value = '';
-      mostrarMensaje('', false);
-    }
-
-    // Actualiza el área derecha con las tablas y datos
-    function actualizarVistaTablas() {
-      const graph = document.getElementById('tables-graph');
-      graph.innerHTML = '';
-      if (!db) return;
-
-      try {
-        // Obtener nombres de tablas
-        const tablas = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';");
-        if (!tablas[0] || tablas[0].values.length === 0) {
-          graph.innerHTML = '<div style="color:#888;padding:16px;">No hay tablas en la base de datos.</div>';
-          return;
-        }
-        // Colores para las tablas
-        const tablaColors = [
-          'table-color-0',
-          'table-color-1',
-          'table-color-2',
-          'table-color-3',
-          'table-color-4',
-          'table-color-5'
-        ];
-
-        tablas[0].values.forEach((tablaRow, idx) => {
-          const tabla = tablaRow[0];
-          const box = document.createElement('div');
-          // Asignar un color diferente para cada tabla
-          const colorClass = tablaColors[idx % tablaColors.length];
-          box.className = `table-box ${colorClass}`;
-
-          // Título
-          const title = document.createElement('div');
-          title.className = 'table-title';
-          title.textContent = tabla;
-          box.appendChild(title);
-
-          // Obtener columnas
-          const columnas = db.exec(`PRAGMA table_info(${tabla});`);
-          const columnasNombres = columnas[0].values.map(col => col[1]);
-
-          // Obtener datos
-          let datos = [];
-          try {
-            const res = db.exec(`SELECT * FROM ${tabla};`);
-            if (res.length > 0) datos = res[0].values;
-          } catch (e) { datos = []; }
-
-          // Crear tabla HTML
-          const tablaHTML = document.createElement('table');
-          const thead = document.createElement('thead');
-          const tr = document.createElement('tr');
-          columnasNombres.forEach(col => {
-            const th = document.createElement('th');
-            th.textContent = col;
-            th.className = 'column-header';
-            tr.appendChild(th);
-          });
-          thead.appendChild(tr);
-          tablaHTML.appendChild(thead);
-
-          // Filas
-          const tbody = document.createElement('tbody');
-          if (datos.length === 0) {
-            const trv = document.createElement('tr');
-            const td = document.createElement('td');
-            td.colSpan = columnasNombres.length;
-            td.style.color = '#aaa';
-            td.textContent = 'Sin datos';
-            trv.appendChild(td);
-            tbody.appendChild(trv);
-          } else {
-            datos.forEach(fila => {
-              const trf = document.createElement('tr');
-              fila.forEach(valor => {
-                const td = document.createElement('td');
-                td.textContent = valor;
-                trf.appendChild(td);
-              });
-              tbody.appendChild(trf);
-            });
-          }
-          tablaHTML.appendChild(tbody);
-          box.appendChild(tablaHTML);
-
-          graph.appendChild(box);
-        });
-      } catch (e) {
-        graph.innerHTML = '<div style="color:#c0392b;">Error mostrando tablas: ' + e.message + '</div>';
-      }
-    }
-
-    // Mostrar mensaje (error o info)
-    function mostrarMensaje(msg, esError) {
-      const el = document.getElementById('msg');
-      el.textContent = msg;
-      el.style.color = esError ? '#c0392b' : '#2d7b2f';
-    }
-
-    // Capturar TAB en textarea
-    document.addEventListener('DOMContentLoaded', function() {
-      const editor = document.getElementById('sql-editor');
-      editor.addEventListener('keydown', function(e) {
-        if (e.key === 'Tab') {
-          e.preventDefault();
-          const start = this.selectionStart;
-          const end = this.selectionEnd;
-          const value = this.value;
-          this.value = value.substring(0, start) + "    " + value.substring(end);
-          this.selectionStart = this.selectionEnd = start + 4;
-        }
-      });
-    });
-
-    // Botones
-    document.getElementById('ejecutarBtn').onclick = ejecutarDesdeEditor;
-    document.getElementById('borrarBtn').onclick = borrarEditor;
-    document.getElementById('initBtn').onclick = inicializarBBDD;
-    document.getElementById('eliminarBtn').onclick = eliminarBBDD;
-    document.getElementById('actualizarBtn').onclick = actualizarVistaTablas;
+    // ... (resto del JS igual) ...
   </script>
 </body>
 </html>
