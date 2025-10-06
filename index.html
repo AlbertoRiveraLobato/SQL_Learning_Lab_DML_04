@@ -8,7 +8,7 @@
   <script>
     // ====== VARIABLE DE VERSIÓN DE LA APP ======
     // Cambia el valor de esta variable para actualizar la versión mostrada en el título.
-    window.SQL_LAB_VERSION = "8";
+    window.SQL_LAB_VERSION = "9";
     // ===========================================
   </script>
   <title>SQL_Learning_Lab_DML_04: Versión <span id="version-in-title"></span></title>
@@ -64,6 +64,27 @@
       letter-spacing: 0.5px;
       font-weight: 700;
       text-align: center;
+    }
+    .structure-table {
+      margin-bottom: 10px;
+      margin-top: 5px;
+      background: #f0f4ff;
+      border-radius: 6px;
+      border: 1px solid #aac;
+      font-size: 0.97em;
+    }
+    .structure-table th, .structure-table td {
+      border: 1px solid #c3cce6;
+      padding: 3px 7px;
+      text-align: left;
+    }
+    .structure-title {
+      font-size: 0.98em;
+      font-weight: bold;
+      color: #234;
+      margin-bottom: 2px;
+      margin-top: 4px;
+      letter-spacing: 0.2px;
     }
   </style>
 </head>
@@ -176,6 +197,72 @@ INSERT INTO asignaturas (nombre, curso) VALUES
       mostrarMensaje('', false);
     }
 
+    // Analiza la definición CREATE TABLE para extraer restricciones de columna
+    function getColumnConstraints(tableName, columnName, tableSql, pragmaRow) {
+      // pragmaRow contiene {cid, name, type, notnull, dflt_value, pk}
+      const constraints = [];
+
+      // NOT NULL
+      if (pragmaRow.notnull === 1) constraints.push('NOT NULL');
+      // DEFAULT
+      if (pragmaRow.dflt_value !== null && pragmaRow.dflt_value !== undefined)
+        constraints.push('DEFAULT ' + pragmaRow.dflt_value);
+      // PRIMARY KEY
+      if (pragmaRow.pk === 1) constraints.push('PRIMARY KEY');
+      // AUTOINCREMENT (solo si PRIMARY KEY INTEGER AUTOINCREMENT)
+      if (
+        pragmaRow.pk === 1 &&
+        pragmaRow.type &&
+        pragmaRow.type.toUpperCase().includes('INT') &&
+        /AUTOINCREMENT/i.test(tableSql)
+      ) {
+        // Buscar la definición de la columna
+        const regex = new RegExp(`${columnName}\\s+[^,]*AUTOINCREMENT`, "i");
+        if (regex.test(tableSql)) constraints.push('AUTOINCREMENT');
+      }
+
+      // CHECK constraints (por columna)
+      // Busca CHECK en la definición de la columna
+      const colDefRegex = new RegExp(
+        `${columnName}\\s+[^,]*CHECK\\s*\\(([^\\)]*)\\)`,
+        "i"
+      );
+      const matchCheck = tableSql.match(colDefRegex);
+      if (matchCheck) constraints.push('CHECK (' + matchCheck[1].trim() + ')');
+
+      // UNIQUE por columna
+      const uniqueColRegex = new RegExp(`${columnName}\\s+[^,]*UNIQUE`, "i");
+      if (uniqueColRegex.test(tableSql)) constraints.push('UNIQUE');
+
+      // NULL explícito (si no es NOT NULL)
+      if (pragmaRow.notnull === 0) {
+        // Si la definición pone NULL explícito
+        const nullColRegex = new RegExp(`${columnName}\\s+[^,]*\\bNULL\\b`, "i");
+        if (nullColRegex.test(tableSql)) constraints.push('NULL');
+      }
+
+      return constraints;
+    }
+
+    // Busca restricciones FOREIGN KEY a nivel de tabla
+    function getForeignKeysForTable(tableName) {
+      try {
+        const res = db.exec(`PRAGMA foreign_key_list(${tableName});`);
+        if (!res.length) return [];
+        // Cada row: [id, seq, table, from, to, on_update, on_delete, match]
+        return res[0].values.map(row => ({
+          from: row[3],
+          refTable: row[2],
+          to: row[4],
+          onUpdate: row[5],
+          onDelete: row[6],
+          match: row[7]
+        }));
+      } catch {
+        return [];
+      }
+    }
+
     // Actualiza el área derecha con las tablas y datos
     function actualizarVistaTablas() {
       const graph = document.getElementById('tables-graph');
@@ -184,7 +271,7 @@ INSERT INTO asignaturas (nombre, curso) VALUES
 
       try {
         // Obtener nombres de tablas
-        const tablas = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';");
+        const tablas = db.exec("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';");
         if (!tablas[0] || tablas[0].values.length === 0) {
           graph.innerHTML = '<div style="color:#888;padding:16px;">No hay tablas en la base de datos.</div>';
           return;
@@ -201,6 +288,8 @@ INSERT INTO asignaturas (nombre, curso) VALUES
 
         tablas[0].values.forEach((tablaRow, idx) => {
           const tabla = tablaRow[0];
+          const tableSql = tablaRow[1] || '';
+
           const box = document.createElement('div');
           // Asignar un color diferente para cada tabla
           const colorClass = tablaColors[idx % tablaColors.length];
@@ -212,9 +301,77 @@ INSERT INTO asignaturas (nombre, curso) VALUES
           title.textContent = tabla;
           box.appendChild(title);
 
+          // ==== ESTRUCTURA DE LA TABLA ====
+          const structureTitle = document.createElement('div');
+          structureTitle.className = 'structure-title';
+          structureTitle.textContent = 'Estructura de la tabla:';
+          box.appendChild(structureTitle);
+
           // Obtener columnas
           const columnas = db.exec(`PRAGMA table_info(${tabla});`);
-          const columnasNombres = columnas[0].values.map(col => col[1]);
+          const columnsInfo = columnas[0].values.map(col => ({
+            cid: col[0],
+            name: col[1],
+            type: col[2],
+            notnull: col[3],
+            dflt_value: col[4],
+            pk: col[5]
+          }));
+
+          // Tabla de estructura
+          const structureTable = document.createElement('table');
+          structureTable.className = 'structure-table';
+          const structureThead = document.createElement('thead');
+          const strTr = document.createElement('tr');
+          ['Columna', 'Tipo', 'Restricciones'].forEach(thtxt => {
+            const th = document.createElement('th');
+            th.textContent = thtxt;
+            strTr.appendChild(th);
+          });
+          structureThead.appendChild(strTr);
+          structureTable.appendChild(structureThead);
+
+          const structureTbody = document.createElement('tbody');
+          columnsInfo.forEach(col => {
+            const tr = document.createElement('tr');
+            // Columna
+            const tdName = document.createElement('td');
+            tdName.textContent = col.name;
+            tr.appendChild(tdName);
+            // Tipo
+            const tdType = document.createElement('td');
+            tdType.textContent = col.type;
+            tr.appendChild(tdType);
+            // Restricciones
+            const tdCons = document.createElement('td');
+            const constraints = getColumnConstraints(tabla, col.name, tableSql, col);
+            tdCons.textContent = constraints.length > 0 ? constraints.join(', ') : '';
+            tr.appendChild(tdCons);
+
+            structureTbody.appendChild(tr);
+          });
+          structureTable.appendChild(structureTbody);
+
+          // FOREIGN KEYS
+          const foreignKeys = getForeignKeysForTable(tabla);
+          if (foreignKeys.length > 0) {
+            const fkDiv = document.createElement('div');
+            fkDiv.style.marginTop = '6px';
+            fkDiv.style.fontSize = '0.97em';
+            fkDiv.innerHTML = '<b>FOREIGN KEY(s):</b><br>' + foreignKeys.map(fk =>
+              `Columna <b>${fk.from}</b> → <b>${fk.refTable}(${fk.to})</b>` +
+              (fk.onUpdate || fk.onDelete ? ` [on_update: ${fk.onUpdate}, on_delete: ${fk.onDelete}]` : '')
+            ).join('<br>');
+            box.appendChild(structureTable);
+            box.appendChild(fkDiv);
+          } else {
+            box.appendChild(structureTable);
+          }
+
+          // ==== FIN ESTRUCTURA ====
+
+          // Obtener nombres de columnas para la tabla de datos
+          const columnasNombres = columnsInfo.map(col => col.name);
 
           // Obtener datos
           let datos = [];
@@ -223,7 +380,7 @@ INSERT INTO asignaturas (nombre, curso) VALUES
             if (res.length > 0) datos = res[0].values;
           } catch (e) { datos = []; }
 
-          // Crear tabla HTML
+          // Crear tabla HTML para los datos
           const tablaHTML = document.createElement('table');
           const thead = document.createElement('thead');
           const tr = document.createElement('tr');
