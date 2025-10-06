@@ -2,14 +2,35 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>SQL_Learning_Lab_DML_04: Versión 6</title>
+  <!-- ======================================================
+       VARIABLE DE VERSIÓN - Modifica solamente este valor:
+       ====================================================== -->
+  <script>
+    // ====== VARIABLE DE VERSIÓN DE LA APP ======
+    // Cambia el valor de esta variable para actualizar la versión mostrada en el título.
+    window.SQL_LAB_VERSION = "7";
+    // ===========================================
+  </script>
+  <title>SQL_Learning_Lab_DML_04: Versión <span id="version-in-title"></span></title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
   <style>
     html, body { height: 100%; margin: 0; font-family: sans-serif; background: #f3f6fa;}
     #container { display: flex; height: 100vh; }
     #left { width: 40%; background: #e9eef6; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; }
     #right { flex: 1; background: #fff; padding: 16px; overflow: auto; }
-    #sql-editor { flex: 1; width: 100%; font-family: monospace; font-size: 15px; resize: none; margin-bottom: 18px; padding: 8px; border-radius: 6px; border: 1px solid #ccd;}
+    #sql-editor { 
+      flex: 1; 
+      width: 100%; 
+      font-family: monospace; 
+      font-size: 15px; 
+      resize: vertical; /* Permite redimensionar verticalmente */
+      margin-bottom: 18px; 
+      padding: 8px; 
+      border-radius: 6px; 
+      border: 1px solid #ccd;
+      min-height: 100px;
+      max-height: 900px;
+    }
     .btn-group { margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
     button { padding: 7px 16px; background: #3a6df0; border: none; color: #fff; border-radius: 5px; font-size: 1rem; cursor: pointer; }
     button:active { background: #2d4fb3; }
@@ -33,13 +54,16 @@
     }
     /* Centrado del título */
     #main-title {
-      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       margin-top: 30px;
       margin-bottom: 10px;
       font-size: 2.15rem;
       color: #234;
       letter-spacing: 0.5px;
       font-weight: 700;
+      text-align: center;
     }
   </style>
 </head>
@@ -62,25 +86,13 @@
     </div>
   </div>
   <script>
-    // Leer versión desde readme.txt y actualizar el título
-    fetch('readme.txt')
-      .then(response => response.ok ? response.text() : '')
-      .then(text => {
-        let version = null;
-        if (text) {
-          const match = text.match(/Versión[:\s]+([0-9]+)/i);
-          if (match) version = match[1];
-        }
-        const title = document.getElementById('main-title');
-        if (version) {
-          title.textContent = 'SQL Playground Didáctico v' + version;
-        } else {
-          title.textContent = 'SQL Playground Didáctico (sin versión)';
-        }
-      })
-      .catch(() => {
-        document.getElementById('main-title').textContent = 'SQL Playground Didáctico (sin versión)';
-      });
+    // Mostrar el título de la aplicación centrado y con la versión leída de la variable
+    document.addEventListener('DOMContentLoaded', function() {
+      // Usar la variable de versión definida arriba
+      const version = window.SQL_LAB_VERSION || "sin versión";
+      const mainTitle = document.getElementById('main-title');
+      mainTitle.textContent = 'SQL_Learning_Lab_DML_04: Versión ' + version;
+    });
 
     let db = null;
     let SQL = null;
