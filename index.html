@@ -8,24 +8,317 @@
        Cambia el valor de la siguiente variable para actualizar la versión:
   ======================================================= -->
   <script>
-    const APP_VERSION = "4"; // <--- MODIFICA AQUÍ EL NÚMERO DE VERSIÓN
+    const APP_VERSION = "5.0"; // <--- MODIFICA AQUÍ EL NÚMERO DE VERSIÓN
   </script>
   <!-- ====================================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
   <style>
-    /* ... (todo el CSS igual que antes) ... */
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      background: #f7f6f3;
+      color: #2d2d2d;
+    }
+    #main-title {
+      text-align: center;
+      margin: 24px 0 16px 0;
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    #container {
+      display: flex;
+      height: 83vh;
+      width: 100vw;
+      gap: 0;
+    }
+    #left, #right {
+      padding: 24px;
+      box-sizing: border-box;
+      height: 100%;
+    }
+    #left {
+      width: 42vw;
+      border-right: 2px solid #ddd;
+      display: flex;
+      flex-direction: column;
+    }
+    #sql-input {
+      width: 100%;
+      height: 200px;
+      font-size: 1.1rem;
+      font-family: "Fira Mono", "Consolas", monospace;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      resize: vertical;
+      outline: none;
+      margin-bottom: 12px;
+    }
+    #left button {
+      margin: 4px 7px 4px 0;
+      padding: 7px 15px;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 5px;
+      border: none;
+      background: #e0e0e0;
+      color: #333;
+      transition: background .2s;
+    }
+    #left button:hover {
+      background: #c9e7fa;
+    }
+    #messages {
+      margin-top: 11px;
+      background: #222;
+      color: #fafafa;
+      border-radius: 4px;
+      font-size: .95rem;
+      font-family: "Fira Mono", "Consolas", monospace;
+      min-height: 30px;
+      padding: 8px 10px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    #right {
+      width: 58vw;
+      overflow-x: auto;
+      overflow-y: auto;
+      background: #f2faff;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 36px;
+    }
+    .table-box {
+      min-width: 220px;
+      background: #f7f5e6;
+      border-radius: 8px;
+      box-shadow: 0 2px 7px 0 #0001;
+      border: 2px solid #e5e5e5;
+      margin-bottom: 12px;
+      padding: 7px 16px 14px 16px;
+      font-size: .98rem;
+      display: inline-block;
+      vertical-align: top;
+    }
+    .table-box .table-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: .03em;
+      margin-bottom: 7px;
+      margin-top: 4px;
+    }
+    .table-box table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 0;
+    }
+    .table-box th, .table-box td {
+      padding: 3px 7px;
+      border-bottom: 1px solid #e0e0e0;
+      text-align: left;
+      font-size: .96rem;
+    }
+    .table-box th {
+      background: #eaf7fa;
+      font-weight: 600;
+    }
+    .table-box tr:last-child td {
+      border-bottom: none;
+    }
+    /* Colores por tabla */
+    .table-color-0 { border-left: 8px solid #3ec6f7; }
+    .table-color-1 { border-left: 8px solid #f9d23c; }
+    .table-color-2 { border-left: 8px solid #e67c73; }
+    .table-color-3 { border-left: 8px solid #5bc686; }
+    .table-color-4 { border-left: 8px solid #b989f5; }
+    .table-color-5 { border-left: 8px solid #f48fb1; }
+    .table-color-6 { border-left: 8px solid #4dd0e1; }
+    .table-color-7 { border-left: 8px solid #80cbc4; }
+    /* Responsive */
+    @media (max-width: 900px) {
+      #container { flex-direction: column; }
+      #left, #right { width: 100vw; }
+      #right { min-height: 300px; }
+    }
   </style>
 </head>
 <body>
   <h1 id="main-title"></h1>
   <div id="container">
-    <!-- ... (resto igual) ... -->
+    <div id="left">
+      <textarea id="sql-input" spellcheck="false" placeholder="Escribe aquí tu código SQL..."></textarea>
+      <div>
+        <button id="run-btn">EJECUTAR</button>
+        <button id="clear-btn">BORRAR</button>
+        <button id="init-btn">INICIALIZAR BBDD</button>
+        <button id="drop-btn">ELIMINAR BBDD</button>
+        <button id="refresh-btn">ACTUALIZAR</button>
+      </div>
+      <div id="messages"></div>
+    </div>
+    <div id="right"></div>
   </div>
   <script>
     // Actualizar el título con la versión
     document.getElementById('main-title').textContent = 'SQL Playground Didáctico v' + APP_VERSION;
 
-    // ... (resto del JS igual) ...
+    let db;
+    let SQL;
+    let INIT_SQL = `
+-- Estructura de ejemplo para practicar DDL y DML
+DROP TABLE IF EXISTS alumnos;
+DROP TABLE IF EXISTS cursos;
+CREATE TABLE alumnos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL,
+  edad INTEGER
+);
+CREATE TABLE cursos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL
+);
+INSERT INTO alumnos (nombre, edad) VALUES
+  ('Juan', 21), ('María', 22), ('Lucía', 20), ('Pedro', 23);
+INSERT INTO cursos (nombre) VALUES
+  ('SQL Básico'), ('SQL Avanzado');
+    `.trim();
+
+    // Inicializar sql.js y la base de datos
+    function initSqlJsAndDb() {
+      window.initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` })
+        .then(SQLLib => {
+          SQL = SQLLib;
+          db = new SQL.Database();
+          resetDb();
+          renderDb();
+        });
+    }
+
+    function resetDb() {
+      db.run("PRAGMA foreign_keys=off;");
+      db.exec(INIT_SQL);
+      db.run("PRAGMA foreign_keys=on;");
+      showMessage("Base de datos inicializada.");
+    }
+
+    function dropDb() {
+      let tables = db.exec("SELECT name FROM sqlite_master WHERE type='table';");
+      if (tables.length > 0) {
+        let names = tables[0].values.map(row => row[0]);
+        db.run("PRAGMA foreign_keys=off;");
+        names.forEach(name => {
+          db.exec(`DROP TABLE IF EXISTS "${name}";`);
+        });
+        db.run("PRAGMA foreign_keys=on;");
+      }
+      showMessage("Base de datos eliminada.");
+      renderDb();
+    }
+
+    function showMessage(msg, isError = false) {
+      const el = document.getElementById('messages');
+      el.textContent = msg;
+      el.style.background = isError ? "#7c2424" : "#222";
+      el.style.color = isError ? "#fff" : "#fafafa";
+    }
+
+    function renderDb() {
+      const right = document.getElementById('right');
+      right.innerHTML = "";
+      let tables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';");
+      if (!tables.length) {
+        right.innerHTML = "<div style='color:#888;font-size:1.1em;margin:30px'>No hay tablas en la base de datos.</div>";
+        return;
+      }
+      let tablenames = tables[0].values.map(row => row[0]);
+      tablenames.forEach((name, idx) => {
+        // cabecera
+        let box = document.createElement('div');
+        box.className = `table-box table-color-${idx % 8}`;
+        // título
+        let title = document.createElement('div');
+        title.className = "table-title";
+        title.textContent = name;
+        box.appendChild(title);
+        // columnas
+        let cols = db.exec(`PRAGMA table_info(${name});`);
+        let colNames = cols[0].values.map(col => col[1]);
+        // datos
+        let res = db.exec(`SELECT * FROM "${name}";`);
+        let table = document.createElement('table');
+        let thead = document.createElement('thead');
+        let tr = document.createElement('tr');
+        colNames.forEach(c => {
+          let th = document.createElement('th');
+          th.textContent = c;
+          tr.appendChild(th);
+        });
+        thead.appendChild(tr);
+        table.appendChild(thead);
+        // filas
+        let tbody = document.createElement('tbody');
+        if (res.length) {
+          res[0].values.forEach(row => {
+            let tr = document.createElement('tr');
+            row.forEach(val => {
+              let td = document.createElement('td');
+              td.textContent = val !== null ? val : '';
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+          });
+        }
+        table.appendChild(tbody);
+        box.appendChild(table);
+        right.appendChild(box);
+      });
+    }
+
+    // Funcionalidad de los botones
+    document.getElementById('run-btn').onclick = function() {
+      let sql = document.getElementById('sql-input').value;
+      try {
+        db.exec(sql);
+        showMessage("¡SQL ejecutado correctamente!");
+        renderDb();
+      } catch(e) {
+        showMessage("Error: " + e.message, true);
+      }
+    };
+
+    document.getElementById('clear-btn').onclick = function() {
+      document.getElementById('sql-input').value = "";
+    };
+
+    document.getElementById('init-btn').onclick = function() {
+      document.getElementById('sql-input').value = INIT_SQL;
+    };
+
+    document.getElementById('drop-btn').onclick = function() {
+      dropDb();
+    };
+
+    document.getElementById('refresh-btn').onclick = function() {
+      renderDb();
+      showMessage("Vista gráfica actualizada.");
+    };
+
+    // Captura la tecla TABULADOR en el textarea para sangría
+    document.getElementById('sql-input').addEventListener('keydown', function(e) {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        let start = this.selectionStart;
+        let end = this.selectionEnd;
+        this.value = this.value.substring(0, start) + "  " + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 2;
+      }
+    });
+
+    // Inicializar todo
+    window.onload = initSqlJsAndDb;
   </script>
 </body>
 </html>
