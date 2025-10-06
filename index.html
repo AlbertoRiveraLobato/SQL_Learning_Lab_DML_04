@@ -63,7 +63,7 @@
   </div>
   <script>
     // Leer versión desde readme.txt y actualizar el título
-    fetch('readme.txt')
+    fetch('README.txt')
       .then(response => response.ok ? response.text() : '')
       .then(text => {
         let version = null;
