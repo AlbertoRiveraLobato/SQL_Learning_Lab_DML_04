@@ -8,7 +8,7 @@
   <script>
     // ====== VARIABLE DE VERSIÓN DE LA APP ======
     // Cambia el valor de esta variable para actualizar la versión mostrada en el título.
-    window.SQL_LAB_VERSION = "7";
+    window.SQL_LAB_VERSION = "8";
     // ===========================================
   </script>
   <title>SQL_Learning_Lab_DML_04: Versión <span id="version-in-title"></span></title>
@@ -19,7 +19,7 @@
     #left { width: 40%; background: #e9eef6; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; }
     #right { flex: 1; background: #fff; padding: 16px; overflow: auto; }
     #sql-editor { 
-      flex: 1; 
+      /* flex: 1;  -- QUITADO PARA PERMITIR REDIMENSIONAR */
       width: 100%; 
       font-family: monospace; 
       font-size: 15px; 
@@ -274,7 +274,7 @@ INSERT INTO asignaturas (nombre, curso) VALUES
       el.style.color = esError ? '#c0392b' : '#2d7b2f';
     }
 
-    // Capturar TAB en textarea
+    // Capturar TAB en textarea y Ctrl+Enter para ejecutar
     document.addEventListener('DOMContentLoaded', function() {
       const editor = document.getElementById('sql-editor');
       editor.addEventListener('keydown', function(e) {
@@ -285,6 +285,10 @@ INSERT INTO asignaturas (nombre, curso) VALUES
           const value = this.value;
           this.value = value.substring(0, start) + "    " + value.substring(end);
           this.selectionStart = this.selectionEnd = start + 4;
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'Return')) {
+          // Ejecutar con Ctrl+Enter (o Cmd+Enter en Mac)
+          e.preventDefault();
+          ejecutarDesdeEditor();
         }
       });
     });
