@@ -20,13 +20,31 @@
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #c3cce6; padding: 3px 7px; text-align: left; font-size: 0.97em; }
     .msg { margin: 10px 0; color: #c0392b; }
+    /* Colores para tablas */
+    .table-color-0 { border-color: #3a6df0; background: #f7fafc; }
+    .table-color-1 { border-color: #2ec4b6; background: #e6fcf5; }
+    .table-color-2 { border-color: #ffb703; background: #fff9e6; }
+    .table-color-3 { border-color: #f94144; background: #fde9ea; }
+    .table-color-4 { border-color: #8338ec; background: #f4e9ff; }
+    .table-color-5 { border-color: #ff6f61; background: #fff1ee; }
     @media (max-width: 800px) {
       #container { flex-direction: column; }
       #left, #right { width: 100%; }
     }
+    /* Centrado del título */
+    #main-title {
+      text-align: center;
+      margin-top: 30px;
+      margin-bottom: 10px;
+      font-size: 2.15rem;
+      color: #234;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
+  <h1 id="main-title"></h1>
   <div id="container">
     <div id="left">
       <div class="btn-group">
@@ -44,6 +62,26 @@
     </div>
   </div>
   <script>
+    // Leer versión desde readme.txt y actualizar el título
+    fetch('readme.txt')
+      .then(response => response.ok ? response.text() : '')
+      .then(text => {
+        let version = null;
+        if (text) {
+          const match = text.match(/Versión[:\s]+([0-9]+)/i);
+          if (match) version = match[1];
+        }
+        const title = document.getElementById('main-title');
+        if (version) {
+          title.textContent = 'SQL Playground Didáctico v' + version;
+        } else {
+          title.textContent = 'SQL Playground Didáctico (sin versión)';
+        }
+      })
+      .catch(() => {
+        document.getElementById('main-title').textContent = 'SQL Playground Didáctico (sin versión)';
+      });
+
     let db = null;
     let SQL = null;
 
@@ -139,10 +177,22 @@ INSERT INTO asignaturas (nombre, curso) VALUES
           graph.innerHTML = '<div style="color:#888;padding:16px;">No hay tablas en la base de datos.</div>';
           return;
         }
-        tablas[0].values.forEach(tablaRow => {
+        // Colores para las tablas
+        const tablaColors = [
+          'table-color-0',
+          'table-color-1',
+          'table-color-2',
+          'table-color-3',
+          'table-color-4',
+          'table-color-5'
+        ];
+
+        tablas[0].values.forEach((tablaRow, idx) => {
           const tabla = tablaRow[0];
           const box = document.createElement('div');
-          box.className = 'table-box';
+          // Asignar un color diferente para cada tabla
+          const colorClass = tablaColors[idx % tablaColors.length];
+          box.className = `table-box ${colorClass}`;
 
           // Título
           const title = document.createElement('div');
